@@ -74,32 +74,24 @@ const getTagById = async (req, res) => {
  * @access  Private/Admin
  */
 const createTag = async (req, res) => {
-  const { name, slug } = req.body;
+  const { name } = req.body;
 
   try {
-    // Check if tag exists
+    // Cek duplikat hanya berdasarkan name
     const tagExists = await prisma.tag.findFirst({
-      where: {
-        OR: [
-          { name },
-          { slug }
-        ]
-      }
+      where: { name }
     });
 
     if (tagExists) {
       return res.status(400).json({
         success: false,
-        message: 'Tag with that name or slug already exists'
+        message: 'Tag with that name already exists'
       });
     }
 
-    // Create tag
+    // Create tag hanya dengan name
     const tag = await prisma.tag.create({
-      data: {
-        name,
-        slug
-      }
+      data: { name }
     });
 
     res.status(201).json({
@@ -115,15 +107,17 @@ const createTag = async (req, res) => {
   }
 };
 
+
 /**
  * @desc    Update tag
  * @route   PUT /api/tags/:id
  * @access  Private/Admin
  */
 const updateTag = async (req, res) => {
-  const { name, slug } = req.body;
+  const { name } = req.body;
 
   try {
+    // Cari tag berdasarkan ID
     const tag = await prisma.tag.findUnique({
       where: { id: req.params.id }
     });
@@ -135,35 +129,14 @@ const updateTag = async (req, res) => {
       });
     }
 
-    // Check if the updated slug or name already exists in other tags
-    if (slug && slug !== tag.slug) {
-      const slugExists = await prisma.tag.findFirst({
-        where: {
-          slug,
-          id: {
-            not: req.params.id
-          }
-        }
-      });
-
-      if (slugExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tag with that slug already exists'
-        });
-      }
-    }
-
+    // Cek duplikat name di tag lain
     if (name && name !== tag.name) {
       const nameExists = await prisma.tag.findFirst({
         where: {
           name,
-          id: {
-            not: req.params.id
-          }
+          id: { not: req.params.id }
         }
       });
-
       if (nameExists) {
         return res.status(400).json({
           success: false,
@@ -172,10 +145,9 @@ const updateTag = async (req, res) => {
       }
     }
 
-    // Prepare update data
+    // Siapkan data update
     const updateData = {};
     if (name) updateData.name = name;
-    if (slug) updateData.slug = slug;
 
     // Update tag
     const updatedTag = await prisma.tag.update({
@@ -195,6 +167,7 @@ const updateTag = async (req, res) => {
     });
   }
 };
+
 
 /**
  * @desc    Delete tag

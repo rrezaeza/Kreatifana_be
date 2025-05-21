@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // Or "mysql", "sqlite", etc.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,67 +14,60 @@ model User {
   password          String
   isAdmin           Boolean            @default(false)
   createdAt         DateTime           @default(now())
+  username          String?            @unique
   products          Product[]
-  favoriteProducts FavoriteProduct[]
+  favoriteProducts  FavoriteProduct[]
   purchasedProducts PurchasedProduct[]
   reviews           Review[]
   bio               String?
   avatar            String?
 }
 
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  products  Product[]
+}
+
+/// **GANTI** `ProductTag` → `Tag`
+model Tag {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[] // implicit relation back to Product.tags
+}
+
 model Product {
-  id           String             @id @default(uuid())
+  id           String    @id @default(uuid())
   title        String
   description  String
   price        Float
-  slug         String             @unique
+  slug         String    @unique
   fileUrl      String?
   thumbnailUrl String
-  user         User               @relation(fields: [userId], references: [id])
   userId       String
-  category     Category           @relation(fields: [categoryId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
   categoryId   String
-  tags         ProductTag[]
+  category     Category  @relation(fields: [categoryId], references: [id])
+  tags         Tag[]     // now matching model `Tag`
   reviews      Review[]
-  favoritedBy  FavoriteProduct[]  @relation(name: "favoriteProducts")
-  purchasedBy  PurchasedProduct[] @relation(name: "purchasedProducts")
-}
-
-model Category {
-  id       String    @id @default(uuid())
-  name     String    @unique
-  products Product[]
-}
-
-model Tag {
-  id    String        @id @default(uuid())
-  name  String        @unique
-  products ProductTag[]
-}
-
-model ProductTag {
-  id        String   @id @default(uuid())
-  product   Product  @relation(fields: [productId], references: [id])
-  productId String
-  tag       Tag      @relation(fields: [tagId], references: [id])
-  tagId     String
-  @@unique([productId, tagId])
+  favoritedBy  FavoriteProduct[] @relation("favoriteProducts")
+  purchasedBy  PurchasedProduct[] @relation("purchasedProducts")
 }
 
 model Review {
   id        String   @id @default(uuid())
   text      String
   rating    Int
-  user      User     @relation(fields: [userId], references: [id])
   userId    String
-  product   Product  @relation(fields: [productId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
   productId String
+  product   Product  @relation(fields: [productId], references: [id])
 }
 
 model FavoriteProduct {
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   productId String
+  user      User     @relation(fields: [userId], references: [id])
   product   Product  @relation(fields: [productId], references: [id], name: "favoriteProducts")
   @@id([userId, productId])
 }
@@ -82,8 +75,8 @@ model FavoriteProduct {
 model PurchasedProduct {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   productId String
+  user      User     @relation(fields: [userId], references: [id])
   product   Product  @relation(fields: [productId], references: [id], name: "purchasedProducts")
   @@index([userId])
   @@index([productId])

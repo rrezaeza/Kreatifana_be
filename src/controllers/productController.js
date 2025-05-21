@@ -1,241 +1,103 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-/**
- * @desc    Get all products
- * @route   GET /api/products
- * @access  Public
- */
+// GET /api/products
 const getProducts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const page  = parseInt(req.query.page)  || 1;
     const limit = parseInt(req.query.limit) || 12;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
-    // Build filter conditions
-    const where = {};
-
-    // Filter by published status (default to true)
-    where.published = req.query.published === "false" ? false : true;
-
-    // Filter by featured
-
-    // Filter by category
-    if (req.query.category) {
-      where.categoryId = req.query.category;
-    }
-
-    // Filter by user
-    if (req.query.user) {
-      where.userId = req.query.user;
-    }
-
-    // Filter by tags
-    if (req.query.tag) {
-      where.tags = {
-        some: {
-          tagId: req.query.tag,
-        },
-      };
-    }
-
-    // Search by title or description
+    // build where
+    const where = { published: req.query.published === 'false' ? false : true };
+    if (req.query.category) where.categoryId = req.query.category;
+    if (req.query.user)     where.userId     = req.query.user;
     if (req.query.search) {
       where.OR = [
-        { title: { contains: req.query.search, mode: "insensitive" } },
-        { description: { contains: req.query.search, mode: "insensitive" } },
+        { title:       { contains: req.query.search, mode: 'insensitive' } },
+        { description: { contains: req.query.search, mode: 'insensitive' } },
       ];
     }
-
-    // Price range
-    if (req.query.minPrice) {
-      where.price = {
-        ...where.price,
-        gte: parseFloat(req.query.minPrice),
-      };
+    if (req.query.minPrice || req.query.maxPrice) {
+      where.price = {};
+      if (req.query.minPrice) where.price.gte = parseFloat(req.query.minPrice);
+      if (req.query.maxPrice) where.price.lte = parseFloat(req.query.maxPrice);
     }
 
-    if (req.query.maxPrice) {
-      where.price = {
-        ...where.price,
-        lte: parseFloat(req.query.maxPrice),
-      };
-    }
+    // sort
+    const sortField     = req.query.sortField     || 'createdAt';
+    const sortDirection = req.query.sortDirection || 'desc';
+    const orderBy = { [sortField]: sortDirection };
 
-    // Get sort field and direction
-    let orderBy = {};
-    const sortField = req.query.sortField || "createdAt";
-    const sortDirection = req.query.sortDirection || "desc";
-    orderBy[sortField] = sortDirection;
-
-    // Get products
-    const products = await prisma.product.findMany({
-      where,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
+    // fetch
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          user:     { select: { id: true, name: true, avatar: true } },
+          tags:     { select: { id: true, name: true } },
+          _count:   { select: { reviews: true, favoritedBy: true, purchasedBy: true } },
         },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        _count: {
-          select: {
-            reviews: true,
-            favorites: true,
-            purchases: true,
-          },
-        },
-      },
-      skip,
-      take: limit,
-      orderBy,
-    });
-
-    // Get total count for pagination
-    const totalProducts = await prisma.product.count({ where });
+        skip,
+        take: limit,
+        orderBy
+      }),
+      prisma.product.count({ where })
+    ]);
 
     res.json({
       success: true,
       products,
       pagination: {
-        page,
-        limit,
-        total: totalProducts,
-        pages: Math.ceil(totalProducts / limit),
-      },
+        page, limit, total, pages: Math.ceil(total / limit)
+      }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
-/**
- * @desc    Get product by ID
- * @route   GET /api/products/:id
- * @access  Public
- */
+// GET /api/products/:id
 const getProductById = async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: req.params.id },
       include: {
         category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-            bio: true,
-          },
+        user:     { select: { id: true, name: true, avatar: true, bio: true } },
+        tags:     { select: { id: true, name: true } },
+        reviews:  {
+          include: { user: { select: { id: true, name: true, avatar: true } } },
+          orderBy: { createdAt: 'desc' }
         },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-        _count: {
-          select: {
-            reviews: true,
-            favorites: true,
-            purchases: true,
-          },
-        },
-      },
-    });
-
-    if (product) {
-      // Calculate average rating
-      let avgRating = 0;
-      if (product.reviews.length > 0) {
-        avgRating =
-          product.reviews.reduce((acc, review) => acc + review.rating, 0) /
-          product.reviews.length;
+        _count: { select: { reviews: true, favoritedBy: true, purchasedBy: true } }
       }
-
-      res.json({
-        success: true,
-        product: {
-          ...product,
-          avgRating,
-        },
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
     });
+
+    if (!product)
+      return res.status(404).json({ success: false, message: 'Product not found' });
+
+    // avg rating
+    const avgRating = product.reviews.length
+      ? product.reviews.reduce((a, r) => a + r.rating, 0) / product.reviews.length
+      : 0;
+
+    res.json({ success: true, product: { ...product, avgRating } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
-/**
- * @desc    Create new product
- * @route   POST /api/products
- * @access  Private
- */
+// POST /api/products
 const createProduct = async (req, res) => {
-  const {
-    title,
-    description,
-    price,
-    thumbnailUrl,
-    fileUrl,
-    slug,
-    categoryId,
-    tags,
-  } = req.body;
-
+  const { title, description, price, thumbnailUrl, fileUrl, slug, categoryId, tags } = req.body;
   try {
-    // Check if product with that slug exists
-    const productExists = await prisma.product.findUnique({
-      where: { slug },
-    });
+    if (await prisma.product.findUnique({ where: { slug } }))
+      return res.status(400).json({ success: false, message: 'Slug exists' });
 
-    if (productExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Product with that slug already exists",
-      });
-    }
-
-    // Create product
     const product = await prisma.product.create({
       data: {
         title,
@@ -246,176 +108,66 @@ const createProduct = async (req, res) => {
         slug,
         categoryId,
         userId: req.user.id,
-        tags: tags
-          ? {
-              create: tags.map((tagId) => ({
-                tag: {
-                  connect: { id: tagId },
-                },
-              })),
-            }
-          : undefined,
+        tags: tags?.length
+          ? { connect: tags.map(id => ({ id })) }
+          : undefined
       },
       include: {
         category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+        user:     { select: { id: true, name: true, avatar: true } },
+        tags:     { select: { id: true, name: true } }
+      }
     });
 
-    res.status(201).json({
-      success: true,
-      product,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    res.status(201).json({ success: true, product });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
-/**
- * @desc    Update product
- * @route   PUT /api/products/:id
- * @access  Private
- */
+// PUT /api/products/:id
 const updateProduct = async (req, res) => {
-  const {
-    title,
-    description,
-    price,
-    thumbnailUrl,
-    fileUrl,
-    slug,
-    categoryId,
-    tags,
-  } = req.body;
-
+  const { title, description, price, thumbnailUrl, fileUrl, slug, categoryId, tags } = req.body;
   try {
-    // Check if product exists
-    const product = await prisma.product.findUnique({
-      where: { id: req.params.id },
-      include: {
-        tags: true,
-      },
-    });
+    const prod = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!prod) return res.status(404).json({ success: false, message: 'Not found' });
+    if (prod.userId !== req.user.id && !req.user.isAdmin)
+      return res.status(403).json({ success: false, message: 'Not authorized' });
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
+    if (slug && slug !== prod.slug) {
+      if (await prisma.product.findFirst({ where: { slug, id: { not: prod.id } } }))
+        return res.status(400).json({ success: false, message: 'Slug exists' });
     }
 
-    // Check if user is authorized to update this product
-    if (product.userId !== req.user.id && !req.user.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this product",
-      });
-    }
-
-    // Check if new slug already exists for a different product
-    if (slug && slug !== product.slug) {
-      const slugExists = await prisma.product.findFirst({
-        where: {
-          slug,
-          id: {
-            not: req.params.id,
-          },
-        },
-      });
-
-      if (slugExists) {
-        return res.status(400).json({
-          success: false,
-          message: "Product with that slug already exists",
-        });
-      }
-    }
-
-    // Prepare update data
-    const updateData = {};
-    if (title) updateData.title = title;
-    if (description) updateData.description = description;
-    if (thumbnailUrl) updateData.thumbnailUrl = thumbnailUrl;
-    if (fileUrl) updateData.fileUrl = fileUrl;
-    if (slug) updateData.slug = slug;
-    if (published !== undefined) updateData.published = published;
-    if (categoryId) updateData.categoryId = categoryId;
-
-    // Update product tags if provided
-    let tagsUpdateOperation;
-    if (tags) {
-      // Delete existing product-tag relationships
-      tagsUpdateOperation = prisma.productsOnTags.deleteMany({
-        where: {
-          productId: req.params.id,
-        },
-      });
-    }
-
-    // Update product
-    const updatedProduct = await prisma.$transaction(async (prisma) => {
-      // Execute tags deletion if needed
-      if (tagsUpdateOperation) {
-        await tagsUpdateOperation;
-
-        // Create new product-tag relationships
-        if (tags.length > 0) {
-          await prisma.productsOnTags.createMany({
-            data: tags.map((tagId) => ({
-              productId: req.params.id,
-              tagId,
-            })),
+    // update
+    const updated = await prisma.$transaction(async tx => {
+      if (tags) {
+        await tx.productsOnTags.deleteMany({ where: { productId: prod.id } });
+        if (tags.length) {
+          await tx.productsOnTags.createMany({
+            data: tags.map(tagId => ({ productId: prod.id, tagId }))
           });
         }
       }
-
-      // Update the product
-      return prisma.product.update({
-        where: { id: req.params.id },
-        data: updateData,
+      return tx.product.update({
+        where: { id: prod.id },
+        data: {
+          title, description, price, thumbnailUrl, fileUrl,
+          slug, categoryId
+        },
         include: {
           category: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-          tags: {
-            include: {
-              tag: true,
-            },
-          },
-        },
+          user:     { select: { id: true, name: true, avatar: true } },
+          tags:     { select: { id: true, name: true } }
+        }
       });
     });
 
-    res.json({
-      success: true,
-      product: updatedProduct,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    res.json({ success: true, product: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
