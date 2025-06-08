@@ -26,6 +26,7 @@ model User {
 model Category {
   id        String    @id @default(uuid())
   name      String    @unique
+  slug      String?   @unique // <-- Ubah baris ini (String tanpa '@default("")')
   products  Product[]
 }
 
@@ -37,27 +38,33 @@ model Tag {
 }
 
 model Product {
-  id           String    @id @default(uuid())
-  title        String
-  description  String
-  price        Float
-  slug         String    @unique
-  fileUrl      String?
-  thumbnailUrl String
-  userId       String
-  user         User      @relation(fields: [userId], references: [id])
-  categoryId   String
-  category     Category  @relation(fields: [categoryId], references: [id])
-  tags         Tag[]     // now matching model `Tag`
-  reviews      Review[]
-  favoritedBy  FavoriteProduct[] @relation("favoriteProducts")
-  purchasedBy  PurchasedProduct[] @relation("purchasedProducts")
+  id            String    @id @default(uuid())
+  title         String
+  description   String
+  price         Float
+  slug          String    @unique
+  fileUrl       String?
+  thumbnailUrl  String
+  published     Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt @default(now()) // <-- Ubah baris ini
+
+  // Relationships
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+  tags          Tag[]
+  reviews       Review[]
+  favoritedBy   FavoriteProduct[] @relation("favoriteProducts")
+  purchasedBy   PurchasedProduct[] @relation("purchasedProducts")
 }
 
 model Review {
   id        String   @id @default(uuid())
   text      String
   rating    Int
+  createdAt DateTime @default(now()) // <--- TAMBAHKAN BARIS INI
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   productId String

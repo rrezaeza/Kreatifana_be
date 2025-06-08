@@ -13,11 +13,8 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // ✅ Pastikan decoded.id ini string
       req.user = await prisma.user.findUnique({
-        where: {
-          id: decoded.id, // ⬅️ Harus string, jangan object
-        },
+        where: { id: decoded.id },
         select: {
           id: true,
           email: true,
@@ -32,8 +29,16 @@ const protect = async (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error(error);
-      return res.status(401).json({ message: "Not authorized, token failed" });
+      // --- UBAH BAGIAN INI ---
+      console.error("Auth middleware error:", error.name, error.message);
+      if (error.name === 'TokenExpiredError') {
+          return res.status(401).json({ message: "Not authorized, token has expired" });
+      } else if (error.name === 'JsonWebTokenError') {
+          return res.status(401).json({ message: `Not authorized, token invalid: ${error.message}` });
+      } else {
+          return res.status(401).json({ message: "Not authorized, token verification failed" });
+      }
+      // --- AKHIR UBAH ---
     }
   }
 

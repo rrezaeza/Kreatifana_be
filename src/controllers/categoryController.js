@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 /**
@@ -11,23 +11,23 @@ const getCategories = async (req, res) => {
     const categories = await prisma.category.findMany({
       include: {
         _count: {
-          select: { products: true }
-        }
+          select: { products: true },
+        },
       },
       orderBy: {
-        name: 'asc'
-      }
+        name: "asc",
+      },
     });
-    
+
     res.json({
       success: true,
-      categories
+      categories,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
@@ -43,27 +43,27 @@ const getCategoryById = async (req, res) => {
       where: { id: req.params.id },
       include: {
         _count: {
-          select: { products: true }
-        }
-      }
+          select: { products: true },
+        },
+      },
     });
 
     if (category) {
       res.json({
         success: true,
-        category
+        category,
       });
     } else {
       res.status(404).json({
         success: false,
-        message: 'Category not found'
+        message: "Category not found",
       });
     }
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
@@ -74,39 +74,37 @@ const getCategoryById = async (req, res) => {
  * @access  Private/Admin
  */
 const createCategory = async (req, res) => {
-  const { name } = req.body;       // hanya name
+  const { name, slug } = req.body; // reminder error hanya name disini tadi makanya slug null
 
   try {
     // Cek duplikat
     const categoryExists = await prisma.category.findFirst({
-      where: { name }
+      where: { name },
     });
     if (categoryExists) {
       return res.status(400).json({
         success: false,
-        message: 'Category with that name already exists'
+        message: "Category with that name already exists",
       });
     }
 
     // Create hanya dengan name
     const category = await prisma.category.create({
-      data: { name }
+      data: { name, slug }, // nah slug nya tambahin
     });
 
     res.status(201).json({
       success: true,
-      category
+      category,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
-
-
 
 /**
  * @desc    Update category
@@ -114,25 +112,27 @@ const createCategory = async (req, res) => {
  * @access  Private/Admin
  */
 const updateCategory = async (req, res) => {
-  const { name } = req.body;       // hanya name
+  const { name } = req.body; // hanya name
 
   try {
     const category = await prisma.category.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
     if (!category) {
-      return res.status(404).json({ success: false, message: 'Category not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
     }
 
     // Cek duplikat name
     if (name && name !== category.name) {
       const nameExists = await prisma.category.findFirst({
-        where: { name, id: { not: req.params.id } }
+        where: { name, id: { not: req.params.id } },
       });
       if (nameExists) {
         return res.status(400).json({
           success: false,
-          message: 'Category with that name already exists'
+          message: "Category with that name already exists",
         });
       }
     }
@@ -140,17 +140,15 @@ const updateCategory = async (req, res) => {
     // Update hanya name
     const updatedCategory = await prisma.category.update({
       where: { id: req.params.id },
-      data: { name: name || category.name }
+      data: { name: name || category.name },
     });
 
     res.json({ success: true, category: updatedCategory });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
-
 
 /**
  * @desc    Delete category
@@ -163,15 +161,15 @@ const deleteCategory = async (req, res) => {
       where: { id: req.params.id },
       include: {
         _count: {
-          select: { products: true }
-        }
-      }
+          select: { products: true },
+        },
+      },
     });
 
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: 'Category not found'
+        message: "Category not found",
       });
     }
 
@@ -179,23 +177,24 @@ const deleteCategory = async (req, res) => {
     if (category._count.products > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete category with products. Move or delete the products first.'
+        message:
+          "Cannot delete category with products. Move or delete the products first.",
       });
     }
 
     await prisma.category.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     res.json({
       success: true,
-      message: 'Category removed'
+      message: "Category removed",
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
@@ -205,5 +204,5 @@ module.exports = {
   getCategoryById,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
 };
