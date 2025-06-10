@@ -8,29 +8,34 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(uuid())
-  name              String
-  email             String             @unique
-  password          String
-  isAdmin           Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  username          String?            @unique
-  products          Product[]
-  favoriteProducts  FavoriteProduct[]
+  id               String           @id @default(uuid())
+  name             String
+  email            String           @unique
+  password         String
+  isAdmin          Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  username         String?          @unique
+  products         Product[]
+  favoriteProducts FavoriteProduct[]
   purchasedProducts PurchasedProduct[]
-  reviews           Review[]
-  bio               String?
-  avatar            String?
+  reviews          Review[]
+  bio              String?
+  avatar           String?
+  location         String? // Pastikan ini ada jika dipakai di frontend
+  portfolio        String? // Pastikan ini ada jika dipakai di frontend
+
+  // Relasi untuk Follower/Following (Jika sudah ada, biarkan)
+  following        User[]           @relation("UserFollows")
+  followedBy       User[]           @relation("UserFollows")
 }
 
 model Category {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  slug      String?   @unique // <-- Ubah baris ini (String tanpa '@default("")')
-  products  Product[]
+  id       String    @id @default(uuid())
+  name     String    @unique
+  slug     String?   @unique // `slug` bisa opsional dan unik jika Anda mau
+  products Product[]
 }
 
-/// **GANTI** `ProductTag` → `Tag`
 model Tag {
   id       String    @id @default(uuid())
   name     String    @unique
@@ -38,33 +43,57 @@ model Tag {
 }
 
 model Product {
-  id            String    @id @default(uuid())
+  id            String          @id @default(uuid())
   title         String
   description   String
   price         Float
-  slug          String    @unique
+  slug          String          @unique
   fileUrl       String?
   thumbnailUrl  String
-  published     Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt @default(now()) // <-- Ubah baris ini
+  published     Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt @default(now())
+
+  // ✅ TAMBAHAN: Relasi ke model ProductFeature
+  features      ProductFeature[] // Ini menghubungkan Product ke ProductFeature
 
   // Relationships
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
   categoryId    String
-  category      Category  @relation(fields: [categoryId], references: [id])
+  category      Category        @relation(fields: [categoryId], references: [id])
   tags          Tag[]
   reviews       Review[]
   favoritedBy   FavoriteProduct[] @relation("favoriteProducts")
   purchasedBy   PurchasedProduct[] @relation("purchasedProducts")
+
+  // Jika Anda memiliki field `oldPrice` atau `downloads` di frontend Product,
+  // Anda juga perlu menambahkannya di sini.
+  // oldPrice      Float?
+  // downloads     Int?
 }
+
+// ✅ TAMBAHAN: Model ProductFeature
+model ProductFeature {
+  id          String   @id @default(uuid())
+  text        String   // Teks dari fitur (contoh: "Dukungan 24/7")
+  description String?  // Deskripsi opsional untuk fitur tersebut
+  iconUrl     String?  // Opsional: URL atau nama ikon jika Anda punya
+  
+  // Relasi ke Product
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+
+  // Opsional: Pastikan kombinasi produk dan teks fitur unik
+  @@unique([productId, text])
+}
+
 
 model Review {
   id        String   @id @default(uuid())
   text      String
   rating    Int
-  createdAt DateTime @default(now()) // <--- TAMBAHKAN BARIS INI
+  createdAt DateTime @default(now())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   productId String
@@ -74,8 +103,8 @@ model Review {
 model FavoriteProduct {
   userId    String
   productId String
-  user      User     @relation(fields: [userId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id], name: "favoriteProducts")
+  user      User    @relation(fields: [userId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], name: "favoriteProducts")
   @@id([userId, productId])
 }
 
