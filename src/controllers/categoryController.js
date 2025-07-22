@@ -199,10 +199,50 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+const getProductsByCategorySlug = async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    // 1. Cari kategori berdasarkan slug
+    const category = await prisma.category.findUnique({
+      where: { slug },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Kategori tidak ditemukan",
+      });
+    }
+
+    // 2. Ambil semua produk dengan categoryId tersebut
+    const products = await prisma.product.findMany({
+      where: {
+        categoryId: category.id,
+      },
+      include: {
+        user: true,
+        category: true,
+        tags: true,
+        reviews: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json({ success: true, products });
+  } catch (error) {
+    console.error("Gagal fetch produk by category slug:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   getCategories,
   getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory,
+  getProductsByCategorySlug,
 };

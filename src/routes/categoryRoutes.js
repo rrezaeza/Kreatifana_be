@@ -5,6 +5,7 @@ const {
   createCategory,
   updateCategory,
   deleteCategory,
+  getProductsByCategorySlug,
 } = require("../controllers/categoryController");
 const { protect, admin } = require("../middleware/authMiddleware");
 

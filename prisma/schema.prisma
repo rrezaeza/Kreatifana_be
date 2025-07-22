@@ -21,10 +21,10 @@ model User {
   reviews          Review[]
   bio              String?
   avatar           String?
-  location         String? // Pastikan ini ada jika dipakai di frontend
-  portfolio        String? // Pastikan ini ada jika dipakai di frontend
+  location         String? 
+  portfolio        String? 
 
-  // Relasi untuk Follower/Following (Jika sudah ada, biarkan)
+
   following        User[]           @relation("UserFollows")
   followedBy       User[]           @relation("UserFollows")
 }
@@ -32,14 +32,14 @@ model User {
 model Category {
   id       String    @id @default(uuid())
   name     String    @unique
-  slug     String?   @unique // `slug` bisa opsional dan unik jika Anda mau
+  slug     String?   @unique // `slug` 
   products Product[]
 }
 
 model Tag {
   id       String    @id @default(uuid())
   name     String    @unique
-  products Product[] // implicit relation back to Product.tags
+  products Product[] 
 }
 
 model Product {
@@ -54,7 +54,7 @@ model Product {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt @default(now())
 
-  // ✅ TAMBAHAN: Relasi ke model ProductFeature
+  
   features      ProductFeature[] // Ini menghubungkan Product ke ProductFeature
 
   // Relationships

@@ -19,9 +19,7 @@ const registerUser = async (req, res) => {
   const { email, username, password, name } = req.body;
 
   try {
-    const userExists = await prisma.user.findUnique({
-      where: { email },
-    });
+    const userExists = await prisma.user.findUnique({ where: { email } });
 
     if (userExists) {
       return res.status(400).json({
@@ -51,7 +49,7 @@ const registerUser = async (req, res) => {
           email: user.email,
           username: user.username,
           isAdmin: user.isAdmin,
-          token: generateToken(user.id), // ✅ SUDAH BENAR
+          token: generateToken(user), // ⬅️ Gunakan user, bukan hanya ID
         },
       });
     }
@@ -91,7 +89,7 @@ const loginUser = async (req, res) => {
     });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      const token = generateToken(user.id); // ✅ FIXED INI
+      const token = generateToken(user); // ⬅️ Gunakan user lengkap
 
       res.status(200).json({
         success: true,
@@ -118,7 +116,6 @@ const loginUser = async (req, res) => {
     });
   }
 };
-
 /**
  * @desc    Get user profile
  * @route   GET /api/auth/profile
