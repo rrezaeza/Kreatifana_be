@@ -3,11 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const path = require("path");
-const fs = require("fs"); // Import fs for checking directory existence
+const fs = require("fs");
 
 const { protect } = require("./middleware/authMiddleware");
 const { errorHandler } = require("./middleware/errorMiddleware");
-const multer = require("multer"); // Diperlukan untuk MulterError
+const multer = require("multer");
 
 // Import Routes
 const authRoutes = require("./routes/authRoutes");
@@ -30,18 +30,34 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // 1) Global middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
+
+// =========================================================
+// >>>>>>> KOREKSI PENTING DI SINI: Konfigurasi CORS <<<<<<<
+const allowedOrigins = [
+  "http://localhost:5174", // URL frontend lokal Anda (sesuaikan port jika berbeda)
+  "https://kreatifana-stage1.vercel.app", // Domain Vercel Anda (tanpa trailing slash jika memungkinkan)
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173", // Sesuaikan dengan URL frontend Anda
+    origin: function (origin, callback) {
+      // Izinkan permintaan tanpa origin (misalnya, dari Postman atau permintaan file lokal)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}.`;
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
-app.use(express.json()); // Untuk parsing body JSON
-app.use(express.urlencoded({ extended: true })); // Untuk parsing URL-encoded body, penting untuk Multer juga
-app.use(morgan("dev"));
+// =========================================================
 
 // 2) Public routes
 app.use("/api/auth", authRoutes);
@@ -49,8 +65,6 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/tags", tagRoutes);
 
 // --- PENTING: Middleware untuk melayani file yang diupload ---
-// Ini akan membuat file di folder `uploads` bisa diakses melalui URL `/uploads/*`
-// Path ini diasumsikan folder `uploads` berada di root proyek (sejajar dengan `src`).
 app.use("/uploads", express.static(uploadsDir));
 console.log(`Serving static files from: ${uploadsDir} at /uploads URL`);
 
@@ -69,20 +83,17 @@ app.get("/", (req, res) => {
 });
 
 // 6) Error handler (harus paling akhir setelah semua rute)
-// --- Penanganan Error Multer Spesifik ---
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     console.error("Multer Error:", err.code, err.message);
-    // Anda bisa memberikan pesan yang lebih user-friendly tergantung pada err.code
     let message = `File upload error: ${err.message}`;
     if (err.code === "LIMIT_FILE_SIZE") {
-      message = "File too large. Maximum 10MB allowed.";
+      message = "File terlalu besar. Maksimum 10MB diizinkan.";
     } else if (err.code === "LIMIT_UNEXPECTED_FILE") {
-      message = `Unexpected field for file upload: ${err.field}.`;
+      message = `Field tidak terduga untuk upload file: ${err.field}.`;
     }
     return res.status(400).json({ success: false, message: message });
   }
-  // Lanjutkan ke error handler umum jika bukan error Multer
   errorHandler(err, req, res, next);
 });
 
