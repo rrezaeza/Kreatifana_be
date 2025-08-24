@@ -38,7 +38,9 @@ app.use(morgan("dev"));
 // >>>>>>> KOREKSI PENTING DI SINI: Konfigurasi CORS <<<<<<<
 const allowedOrigins = [
   "http://localhost:5174", // URL frontend lokal Anda (sesuaikan port jika berbeda)
-  "https://kreatifana-stage1.vercel.app", // Domain Vercel Anda (tanpa trailing slash jika memungkinkan)
+  "https://kreatifana-stage1.vercel.app",
+  "https://kreatifana-eza.vercel.app",
+  // Domain Vercel Anda (tanpa trailing slash jika memungkinkan)
 ];
 
 app.use(
